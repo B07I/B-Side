@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B-Side</title>
+  <style>
+    :root {
+      --bg-start: #060b18;    /* Deep midnight blue */
+      --bg-end: #121d3a;      /* Slate blue gradient glow */
+      --card-bg: rgba(28, 37, 65, 0.85);
+      --card-solid: #1c2541;
+      --accent: #3a86ff;      /* Subtle bright blue */
+      --accent-hover: #2563eb;
+      --text: #edf2f4;        /* Soft white/blue tint */
+      --muted: #8d99ae;       /* Muted slate gray-blue */
+      --border: #2b3a67;      /* Subtle blue border */
+      --input-bg: #0e1738;    /* Dark input background */
+      --danger: #e63946;      /* Clean red for delete */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+
+    /* Page Navigation Tabs */
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--input-bg);
+      padding: 0.3rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    /* Single Data Icon & Dropdown */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.7rem 0.85rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-icon:hover {
+      background: #253259;
+      border-color: var(--accent);
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.4rem);
+      background: var(--card-solid);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-width: 170px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .dropdown-content button {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      text-align: left;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.2s;
+    }
+
+    .dropdown-content button:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .dropdown:hover .dropdown-content,
+    .dropdown:focus-within .dropdown-content {
+      display: block;
+    }
+
+    /* Views visibility */
+    .view-page { display: none; }
+    .view-page.active { display: block; }
+
+    /* Stats Page Layout */
+    .stats-header {
+      margin-bottom: 2rem;
+    }
+    .stats-header h2 { font-size: 1.75rem; margin-bottom: 0.3rem; }
+    .stats-header p { color: var(--muted); font-size: 0.95rem; }
+
+    .stats-grid-primary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-subtext {
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-top: 0.3rem;
+    }
+
+    .stats-grid-secondary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .detail-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+
+    .detail-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .stat-list {
+      list-style: none;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.9rem;
+    }
+
+    .stat-item:last-child { border-bottom: none; }
+    .stat-item-name { color: var(--text); }
+    .stat-item-count { color: var(--accent); font-weight: bold; }
+
+    /* Controls Bar */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    select, input[type="text"], input[type="number"], input[type="url"] {
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.6rem;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+
+    /* Modal & iTunes Search */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 8, 20, 0.88);
+      backdrop-filter: blur(6px);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+    .modal-content {
+      background: var(--card-solid);
+      padding: 2rem;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 520px;
+      border: 1px solid var(--border);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+
+    .search-section {
+      background: var(--input-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+    .search-input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .search-input-group input { flex-grow: 1; }
+    
+    .btn-search {
+      background: var(--border);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-search:hover { background: var(--accent); }
+
+    .search-results {
+      margin-top: 0.75rem;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      border-top: 1px solid var(--border);
+    }
+
+    .search-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .search-item:hover { background: #253259; }
+    .search-item img { width: 42px; height: 42px; border-radius: 4px; object-fit: cover; }
+    .search-item-info { flex-grow: 1; overflow: hidden; }
+    .search-item-title { font-size: 0.85rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-item-sub { font-size: 0.75rem; color: var(--muted); }
+
+    .divider {
+      text-align: center;
+      margin: 1.5rem 0 1rem;
+      position: relative;
+    }
+    .divider::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 0; right: 0;
+      height: 1px;
+      background: var(--border);
+    }
+    .divider span {
+      position: relative;
+      background: var(--card-solid);
+      padding: 0 0.75rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+    .form-group input, .form-group select { width: 100%; }
+    .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
+    .checkbox-group input { width: auto; }
+
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+    .btn-cancel {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-cancel:hover { color: var(--text); border-color: var(--muted); }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: auto;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover { 
+      transform: translateY(-4px); 
+      border-color: var(--accent);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+
+    .cover-container {
+      aspect-ratio: 1;
+      width: 100%;
+      background: #0e1738;
+      position: relative;
+    }
+    .cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .badge-owned {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(6, 11, 24, 0.9);
+      color: #00f5d4;
+      border: 1px solid #00f5d4;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    .card-body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .album-title { font-size: 1rem; font-weight: bold; margin-bottom: 0.2rem; }
+    .artist-name { color: var(--accent); font-size: 0.9rem; margin-bottom: 0.4rem; }
+    .meta-info { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+    .card-footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .rating { color: #ffca28; font-size: 0.9rem; font-weight: bold; }
+    
+    .btn-card-edit {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .btn-card-edit:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>B-Side</h1>
+      <p style="color: var(--muted); font-size: 0.9rem;">Your offline personal log</p>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" id="tab-vault" onclick="switchTab('vault')">🎵 Vault</button>
+      <button class="tab-btn" id="tab-stats" onclick="switchTab('stats')">📊 Statistics</button>
+    </nav>
+
+    <div class="header-actions">
+      <!-- Backup/Restore Dropdown -->
+      <div class="dropdown">
+        <button class="btn-icon" title="Data Backup / Restore">⚙️</button>
+        <div class="dropdown-content">
+          <button onclick="exportJSON()">📤 Export JSON</button>
+          <button onclick="document.getElementById('import-file').click()">📥 Import JSON</button>
+        </div>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importJSON(event)">
+
+      <button class="btn-primary" onclick="openModal()">+ Log Album</button>
+    </div>
+  </header>
+
+  <!-- PAGE 1: VAULT VIEW -->
+  <div id="view-vault" class="view-page active">
+    <section class="controls">
+      <div id="counter" style="color: var(--muted); font-size: 0.9rem; font-weight: 500;">Collection contains 0 albums</div>
+      <div>
+        <label for="sort-select" style="font-size: 0.9rem; color: var(--muted); margin-right: 0.4rem;">Sort by:</label>
+        <select id="sort-select" onchange="renderAlbums()">
+          <option value="added-asc">Date Added (Oldest → Newest)</option>
+          <option value="added-desc">Date Added (Newest → Oldest)</option>
+          <option value="release-asc">Release Year (Oldest → Newest)</option>
+          <option value="release-desc">Release Year (Newest → Oldest)</option>
+          <option value="rating-desc">Rating (Highest → Lowest)</option>
+        </select>
+      </div>
+    </section>
+
+    <main class="grid" id="album-grid"></main>
+  </div>
+
+  <!-- PAGE 2: STATS PAGE -->
+  <div id="view-stats" class="view-page">
+    <div class="stats-header">
+      <h2>Collection Analytics</h2>
+      <p>A breakdown of your listening habits and physical media collection.</p>
+    </div>
+
+    <section class="stats-grid-primary">
+      <div class="stat-card">
+        <div class="stat-label">Total Albums</div>
+        <div class="stat-value" id="stat-total-count">0</div>
+        <div class="stat-subtext">in collection</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average Rating</div>
+        <div class="stat-value" id="stat-avg-rating">★ 0.0</div>
+        <div class="stat-subtext">out of 10</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Physical Copies</div>
+        <div class="stat-value" id="stat-owned">0 / 0</div>
+        <div class="stat-subtext" id="stat-owned-sub">0% owned</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Release Era</div>
+        <div class="stat-value" id="stat-year-range">N/A</div>
+        <div class="stat-subtext">spanning years</div>
+      </div>
+    </section>
+
+    <section class="stats-grid-secondary">
+      <div class="detail-card">
+        <h3>Top Genres Breakdown</h3>
+        <ul class="stat-list" id="stat-genre-list">
+          <li class="stat-item"><span class="stat-item-name">No data available</span></li>
+        </ul>
+      </div>
+
+      <div class="detail-card">
+        <h3>Decade Distribution</h3>
+        <ul class="stat-list" id="stat-decade-list">
+          <li class="stat-item"><span class="stat-item-name">No data available</span></li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- Add/Edit Album Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <h2 id="modal-title">Log New Album</h2>
+
+      <!-- iTunes Auto Lookup Section -->
+      <div class="search-section">
+        <label style="font-size: 0.85rem; font-weight: bold; color: var(--text);">Auto-fill from iTunes</label>
+        <div class="search-input-group">
+          <input type="text" id="itunes-query" placeholder="Type album name or artist..." onkeydown="if(event.key==='Enter'){event.preventDefault(); searchiTunes();}">
+          <button type="button" class="btn-search" onclick="searchiTunes()">Search</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </div>
+
+      <div class="divider"><span>OR EDIT DETAILS</span></div>
+
+      <form id="album-form" onsubmit="handleFormSubmit(event)">
+        <div class="form-group">
+          <label>Album Title</label>
+          <input type="text" id="title" required>
+        </div>
+        <div class="form-group">
+          <label>Artist</label>
+          <input type="text" id="artist" required>
+        </div>
+        <div class="form-group">
+          <label>Release Year</label>
+          <input type="number" id="year" placeholder="e.g. 1975" min="1900" max="2099" required>
+        </div>
+        <div class="form-group">
+          <label>Genre</label>
+          <input type="text" id="genre" placeholder="e.g. Rock" required>
+        </div>
+        <div class="form-group">
+          <label>Cover Image URL</label>
+          <input type="url" id="coverUrl" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label>Rating (1 to 10)</label>
+          <select id="rating">
+            <option value="10">★ 10 / 10 (Masterpiece)</option>
+            <option value="9">★ 9 / 10</option>
+            <option value="8">★ 8 / 10</option>
+            <option value="7">★ 7 / 10</option>
+            <option value="6">★ 6 / 10</option>
+            <option value="5" selected>★ 5 / 10</option>
+            <option value="4">★ 4 / 10</option>
+            <option value="3">★ 3 / 10</option>
+            <option value="2">★ 2 / 10</option>
+            <option value="1">★ 1 / 10</option>
+          </select>
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="owned">
+          <label for="owned" style="margin: 0; cursor: pointer; color: var(--text);">I own physical copy (CD/Vinyl/Tape)</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="btn-delete-modal" onclick="deleteCurrentAlbum()" style="display:none;">Remove Album</button>
+          <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn-primary" id="btn-submit-modal">Save Album</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'album_vault_data';
+    let editingAlbumId = null;
+
+    function getAlbums() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    }
+
+    function saveAlbums(albums) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(albums));
+    }
+
+    /* Page Navigation Logic */
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view-page').forEach(page => page.classList.remove('active'));
+
+      if (tabName === 'stats') {
+        document.getElementById('tab-stats').classList.add('active');
+        document.getElementById('view-stats').classList.add('active');
+        renderStats();
+      } else {
+        document.getElementById('tab-vault').classList.add('active');
+        document.getElementById('view-vault').classList.add('active');
+        renderAlbums();
+      }
+    }
+
+    function openModal(id = null) {
+      editingAlbumId = id;
+      const modal = document.getElementById('modal');
+      const modalTitle = document.getElementById('modal-title');
+      const deleteBtn = document.getElementById('btn-delete-modal');
+      const submitBtn = document.getElementById('btn-submit-modal');
+
+      modal.style.display = 'flex';
+
+      if (id !== null) {
+        // Edit Mode
+        const album = getAlbums().find(a => a.id === id);
+        if (album) {
+          modalTitle.textContent = 'Edit Album Details';
+          submitBtn.textContent = 'Save Changes';
+          deleteBtn.style.display = 'block';
+
+          document.getElementById('title').value = album.title || '';
+          document.getElementById('artist').value = album.artist || '';
+          document.getElementById('year').value = album.year || '';
+          document.getElementById('genre').value = album.genre || '';
+          document.getElementById('coverUrl').value = album.coverUrl || '';
+          document.getElementById('rating').value = album.rating || 5;
+          document.getElementById('owned').checked = !!album.owned;
+        }
+      } else {
+        // Add Mode
+        modalTitle.textContent = 'Log New Album';
+        submitBtn.textContent = 'Save Album';
+        deleteBtn.style.display = 'none';
+        document.getElementById('album-form').reset();
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').style.display = 'none';
+      document.getElementById('album-form').reset();
+      document.getElementById('itunes-query').value = '';
+      const resultsContainer = document.getElementById('search-results');
+      resultsContainer.style.display = 'none';
+      resultsContainer.innerHTML = '';
+      editingAlbumId = null;
+    }
+
+    /* Backup & Restore Functions */
+    function exportJSON() {
+      const albums = getAlbums();
+      if (albums.length === 0) {
+        alert('Your collection is empty. Nothing to export!');
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(albums, null, 2));
+      const downloadAnchor = document.createElement('a');
+      const filename = `album_vault_backup_${new Date().toISOString().slice(0,10)}.json`;
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", filename);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedAlbums = JSON.parse(e.target.result);
+          if (!Array.isArray(importedAlbums)) {
+            alert('Invalid backup file format.');
+            return;
+          }
+          if (confirm(`Import ${importedAlbums.length} albums? This will replace your current collection.`)) {
+            saveAlbums(importedAlbums);
+            renderAlbums();
+            renderStats();
+          }
+        } catch (err) {
+          alert('Error reading JSON file. Make sure it is valid JSON.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    /* iTunes Auto Lookup */
+    function searchiTunes() {
+      const query = document.getElementById('itunes-query').value.trim();
+      const resultsContainer = document.getElementById('search-results');
+
+      if (!query) return;
+
+      resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--muted);">Searching iTunes...</div>';
+      resultsContainer.style.display = 'block';
+
+      const oldScript = document.getElementById('itunes-jsonp-script');
+      if (oldScript) oldScript.remove();
+
+      window.handleiTunesResponse = function(data) {
+        if (!data.results || data.results.length === 0) {
+          resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--muted);">No albums found.</div>';
+          return;
+        }
+
+        window.currentSearchResults = data.results;
+
+        resultsContainer.innerHTML = data.results.map((item, index) => {
+          const year = item.releaseDate ? new Date(item.releaseDate).getFullYear() : '';
+          return `
+            <div class="search-item" onclick="selectAlbum(${index})">
+              <img src="${item.artworkUrl100}" alt="Cover">
+              <div class="search-item-info">
+                <div class="search-item-title">${item.collectionName}</div>
+                <div class="search-item-sub">${item.artistName} • ${year} • ${item.primaryGenreName || 'Music'}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      };
+
+      const script = document.createElement('script');
+      script.id = 'itunes-jsonp-script';
+      script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&limit=5&callback=handleiTunesResponse`;
+      
+      script.onerror = function() {
+        resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--danger);">Network error. Check internet connection.</div>';
+      };
+
+      document.head.appendChild(script);
+    }
+
+    function selectAlbum(index) {
+      const item = window.currentSearchResults[index];
+      if (!item) return;
+
+      document.getElementById('title').value = item.collectionName || '';
+      document.getElementById('artist').value = item.artistName || '';
+      document.getElementById('year').value = item.releaseDate ? new Date(item.releaseDate).getFullYear() : '';
+      document.getElementById('genre').value = item.primaryGenreName || '';
+      document.getElementById('coverUrl').value = item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+
+      const resultsContainer = document.getElementById('search-results');
+      resultsContainer.style.display = 'none';
+      resultsContainer.innerHTML = '';
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const albums = getAlbums();
+
+      const albumData = {
+        title: document.getElementById('title').value.trim(),
+        artist: document.getElementById('artist').value.trim(),
+        year: parseInt(document.getElementById('year').value),
+        genre: document.getElementById('genre').value.trim(),
+        coverUrl: document.getElementById('coverUrl').value.trim(),
+        rating: parseInt(document.getElementById('rating').value),
+        owned: document.getElementById('owned').checked,
+      };
+
+      if (editingAlbumId !== null) {
+        const index = albums.findIndex(a => a.id === editingAlbumId);
+        if (index !== -1) {
+          albums[index] = { ...albums[index], ...albumData };
+        }
+      } else {
+        albums.push({
+          id: Date.now(),
+          addedAt: Date.now(),
+          ...albumData
+        });
+      }
+
+      saveAlbums(albums);
+      closeModal();
+      renderAlbums();
+      renderStats();
+    }
+
+    function deleteCurrentAlbum() {
+      if (editingAlbumId === null) return;
+      if (confirm('Are you sure you want to remove this album from your vault?')) {
+        const albums = getAlbums().filter(album => album.id !== editingAlbumId);
+        saveAlbums(albums);
+        closeModal();
+        renderAlbums();
+        renderStats();
+      }
+    }
+
+    function getSortedAlbums(albums) {
+      const sortValue = document.getElementById('sort-select').value;
+      return [...albums].sort((a, b) => {
+        switch (sortValue) {
+          case 'added-asc': return a.addedAt - b.addedAt;
+          case 'added-desc': return b.addedAt - a.addedAt;
+          case 'release-asc': return a.year - b.year;
+          case 'release-desc': return b.year - a.year;
+          case 'rating-desc': return b.rating - a.rating;
+          default: return 0;
+        }
+      });
+    }
+
+    /* Rendering Detailed Stats Page */
+    function renderStats() {
+      const albums = getAlbums();
+
+      document.getElementById('stat-total-count').textContent = albums.length;
+
+      if (!albums || albums.length === 0) {
+        document.getElementById('stat-avg-rating').textContent = '★ 0.0';
+        document.getElementById('stat-owned').textContent = '0 / 0';
+        document.getElementById('stat-owned-sub').textContent = '0% owned';
+        document.getElementById('stat-year-range').textContent = 'N/A';
+        document.getElementById('stat-genre-list').innerHTML = `<li class="stat-item"><span class="stat-item-name" style="color:var(--muted)">No albums logged yet</span></li>`;
+        document.getElementById('stat-decade-list').innerHTML = `<li class="stat-item"><span class="stat-item-name" style="color:var(--muted)">No albums logged yet</span></li>`;
+        return;
+      }
+
+      // 1. Average Rating
+      const avg = (albums.reduce((sum, a) => sum + (a.rating || 0), 0) / albums.length).toFixed(1);
+      document.getElementById('stat-avg-rating').textContent = `★ ${avg}`;
+
+      // 2. Physical Ownership
+      const owned = albums.filter(a => a.owned).length;
+      const pct = Math.round((owned / albums.length) * 100);
+      document.getElementById('stat-owned').textContent = `${owned} / ${albums.length}`;
+      document.getElementById('stat-owned-sub').textContent = `${pct}% physical copies`;
+
+      // 3. Release Era Range
+      const years = albums.map(a => a.year).filter(y => !isNaN(y) && y > 0);
+      if (years.length > 0) {
+        const minYear = Math.min(...years);
+        const maxYear = Math.max(...years);
+        document.getElementById('stat-year-range').textContent = minYear === maxYear ? `${minYear}` : `${minYear} – ${maxYear}`;
+      } else {
+        document.getElementById('stat-year-range').textContent = 'N/A';
+      }
+
+      // 4. Genre Breakdown List
+      const genreCounts = {};
+      albums.forEach(a => {
+        if (a.genre) {
+          const g = a.genre.trim();
+          genreCounts[g] = (genreCounts[g] || 0) + 1;
+        }
+      });
+
+      const sortedGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]);
+      document.getElementById('stat-genre-list').innerHTML = sortedGenres.map(([genre, count]) => `
+        <li class="stat-item">
+          <span class="stat-item-name">${genre}</span>
+          <span class="stat-item-count">${count} ${count === 1 ? 'album' : 'albums'}</span>
+        </li>
+      `).join('');
+
+      // 5. Decade Breakdown List
+      const decadeCounts = {};
+      albums.forEach(a => {
+        if (a.year && !isNaN(a.year)) {
+          const decade = `${Math.floor(a.year / 10) * 10}s`;
+          decadeCounts[decade] = (decadeCounts[decade] || 0) + 1;
+        }
+      });
+
+      const sortedDecades = Object.entries(decadeCounts).sort((a, b) => a[0].localeCompare(b[0]));
+      document.getElementById('stat-decade-list').innerHTML = sortedDecades.map(([decade, count]) => `
+        <li class="stat-item">
+          <span class="stat-item-name">${decade}</span>
+          <span class="stat-item-count">${count} ${count === 1 ? 'album' : 'albums'}</span>
+        </li>
+      `).join('');
+    }
+
+    /* Render Vault Grid View */
+    function renderAlbums() {
+      const albums = getAlbums();
+      const sortedAlbums = getSortedAlbums(albums);
+      const grid = document.getElementById('album-grid');
+      const counter = document.getElementById('counter');
+
+      counter.textContent = `Collection contains ${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`;
+
+      if (sortedAlbums.length === 0) {
+        grid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--muted); padding: 3rem;">No albums added yet. Click "+ Log Album" to start!</p>`;
+        return;
+      }
+
+      grid.innerHTML = sortedAlbums.map(album => {
+        const fallbackImg = `https://via.placeholder.com/300/1c2541/8d99ae?text=${encodeURIComponent(album.title)}`;
+
+        return `
+          <div class="card">
+            <div class="cover-container">
+              <img src="${album.coverUrl || fallbackImg}" class="cover-img" alt="${album.title}" onerror="this.src='${fallbackImg}'">
+              ${album.owned ? '<span class="badge-owned">OWNED 💿</span>' : ''}
+            </div>
+            <div class="card-body">
+              <div class="album-title">${album.title}</div>
+              <div class="artist-name">${album.artist}</div>
+              <div class="meta-info">${album.year} • ${album.genre}</div>
+              <div class="card-footer">
+                <span class="rating" title="${album.rating}/10 rating">★ ${album.rating}/10</span>
+                <button class="btn-card-edit" onclick="openModal(${album.id})">Edit</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Initial Render
+    renderAlbums();
+  </script>
+</body>
+</html>
