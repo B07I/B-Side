@@ -10,7 +10,7 @@
       --bg-end: #121d3a;      /* Slate blue gradient glow */
       --card-bg: rgba(28, 37, 65, 0.85);
       --card-solid: #1c2541;
-      --accent: #3a86ff;      /* Subtle bright blue */
+      --accent: #3a86ff;      /* Bright blue */
       --accent-hover: #2563eb;
       --text: #edf2f4;        /* Soft white/blue tint */
       --muted: #8d99ae;       /* Muted slate gray-blue */
@@ -226,9 +226,7 @@
       color: var(--text);
     }
 
-    .stat-list {
-      list-style: none;
-    }
+    .stat-list { list-style: none; }
 
     .stat-item {
       display: flex;
@@ -263,7 +261,7 @@
     }
     select:focus, input:focus { border-color: var(--accent); }
 
-    /* Modal & iTunes Search */
+    /* Modal & Search */
     .modal {
       display: none;
       position: fixed;
@@ -315,7 +313,7 @@
 
     .search-results {
       margin-top: 0.75rem;
-      max-height: 200px;
+      max-height: 220px;
       overflow-y: auto;
       display: none;
       border-top: 1px solid var(--border);
@@ -325,7 +323,7 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.5rem;
+      padding: 0.6rem;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       cursor: pointer;
       transition: background 0.2s;
@@ -582,12 +580,12 @@
     <div class="modal-content">
       <h2 id="modal-title">Log New Album</h2>
 
-      <!-- iTunes Auto Lookup Section -->
+      <!-- Auto Lookup Section -->
       <div class="search-section">
-        <label style="font-size: 0.85rem; font-weight: bold; color: var(--text);">Auto-fill from iTunes</label>
+        <label style="font-size: 0.85rem; font-weight: bold; color: var(--text);">Auto-fill Album Search</label>
         <div class="search-input-group">
-          <input type="text" id="itunes-query" placeholder="Type album name or artist..." onkeydown="if(event.key==='Enter'){event.preventDefault(); searchiTunes();}">
-          <button type="button" class="btn-search" onclick="searchiTunes()">Search</button>
+          <input type="text" id="itunes-query" placeholder="Artist, album title..." onkeydown="if(event.key==='Enter'){event.preventDefault(); fetchAlbumMetadata();}">
+          <button type="button" class="btn-search" onclick="fetchAlbumMetadata()">Search</button>
         </div>
         <div id="search-results" class="search-results"></div>
       </div>
@@ -757,61 +755,86 @@
       event.target.value = '';
     }
 
-    /* iTunes Auto Lookup */
-    function searchiTunes() {
+    /* Enhanced Dual Search API (iTunes + MusicBrainz Fallback) */
+    async function fetchAlbumMetadata() {
       const query = document.getElementById('itunes-query').value.trim();
       const resultsContainer = document.getElementById('search-results');
 
       if (!query) return;
 
-      resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--muted);">Searching iTunes...</div>';
+      resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--muted);">Searching catalog...</div>';
       resultsContainer.style.display = 'block';
 
-      const oldScript = document.getElementById('itunes-jsonp-script');
-      if (oldScript) oldScript.remove();
+      try {
+        // 1. Try iTunes with modern fetch and broad media matching
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=8`);
+        const data = await res.json();
 
-      window.handleiTunesResponse = function(data) {
-        if (!data.results || data.results.length === 0) {
-          resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--muted);">No albums found.</div>';
+        let results = [];
+
+        if (data.results && data.results.length > 0) {
+          results = data.results.map(item => ({
+            title: item.collectionName,
+            artist: item.artistName,
+            year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : '',
+            genre: item.primaryGenreName || 'Music',
+            coverUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '',
+            thumb: item.artworkUrl100 || ''
+          }));
+        } else {
+          // 2. Fallback to MusicBrainz for underground, self-released, or local bands
+          const mbRes = await fetch(`https://musicbrainz.org/ws/2/release-group?query=${encodeURIComponent(query)}&type=album&fmt=json`, {
+            headers: { 'User-Agent': 'BSideVault/1.0' }
+          });
+          const mbData = await mbRes.json();
+          const groups = mbData['release-groups']?.slice(0, 6) || [];
+
+          results = groups.map(g => {
+            const mbid = g.id;
+            return {
+              title: g.title,
+              artist: g['artist-credit']?.[0]?.name || 'Unknown Artist',
+              year: g['first-release-date'] ? g['first-release-date'].split('-')[0] : '',
+              genre: g['primary-type'] || 'Music',
+              coverUrl: `https://coverartarchive.org/release-group/${mbid}/front-500`,
+              thumb: `https://coverartarchive.org/release-group/${mbid}/front-250`
+            };
+          });
+        }
+
+        if (results.length === 0) {
+          resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--muted);">No matching albums found.</div>';
           return;
         }
 
-        window.currentSearchResults = data.results;
+        window.currentSearchResults = results;
 
-        resultsContainer.innerHTML = data.results.map((item, index) => {
-          const year = item.releaseDate ? new Date(item.releaseDate).getFullYear() : '';
-          return `
-            <div class="search-item" onclick="selectAlbum(${index})">
-              <img src="${item.artworkUrl100}" alt="Cover">
-              <div class="search-item-info">
-                <div class="search-item-title">${item.collectionName}</div>
-                <div class="search-item-sub">${item.artistName} • ${year} • ${item.primaryGenreName || 'Music'}</div>
-              </div>
+        const fallbackThumb = `https://via.placeholder.com/100/1c2541/8d99ae?text=No+Cover`;
+
+        resultsContainer.innerHTML = results.map((item, index) => `
+          <div class="search-item" onclick="selectAlbum(${index})">
+            <img src="${item.thumb || fallbackThumb}" alt="Cover" onerror="this.src='${fallbackThumb}'">
+            <div class="search-item-info">
+              <div class="search-item-title">${item.title}</div>
+              <div class="search-item-sub">${item.artist} ${item.year ? '• ' + item.year : ''} • ${item.genre}</div>
             </div>
-          `;
-        }).join('');
-      };
+          </div>
+        `).join('');
 
-      const script = document.createElement('script');
-      script.id = 'itunes-jsonp-script';
-      script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&limit=5&callback=handleiTunesResponse`;
-      
-      script.onerror = function() {
-        resultsContainer.innerHTML = '<div style="padding:0.5rem; font-size:0.8rem; color:var(--danger);">Network error. Check internet connection.</div>';
-      };
-
-      document.head.appendChild(script);
+      } catch (err) {
+        resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--danger);">Search error. Check network connection.</div>';
+      }
     }
 
     function selectAlbum(index) {
       const item = window.currentSearchResults[index];
       if (!item) return;
 
-      document.getElementById('title').value = item.collectionName || '';
-      document.getElementById('artist').value = item.artistName || '';
-      document.getElementById('year').value = item.releaseDate ? new Date(item.releaseDate).getFullYear() : '';
-      document.getElementById('genre').value = item.primaryGenreName || '';
-      document.getElementById('coverUrl').value = item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+      document.getElementById('title').value = item.title || '';
+      document.getElementById('artist').value = item.artist || '';
+      document.getElementById('year').value = item.year || '';
+      document.getElementById('genre').value = item.genre || '';
+      document.getElementById('coverUrl').value = item.coverUrl || '';
 
       const resultsContainer = document.getElementById('search-results');
       resultsContainer.style.display = 'none';
@@ -876,7 +899,7 @@
       });
     }
 
-    /* Rendering Detailed Stats Page */
+    /* Render Analytics */
     function renderStats() {
       const albums = getAlbums();
 
@@ -912,7 +935,7 @@
         document.getElementById('stat-year-range').textContent = 'N/A';
       }
 
-      // 4. Genre Breakdown List
+      // 4. Genre Breakdown
       const genreCounts = {};
       albums.forEach(a => {
         if (a.genre) {
@@ -929,7 +952,7 @@
         </li>
       `).join('');
 
-      // 5. Decade Breakdown List
+      // 5. Decade Breakdown
       const decadeCounts = {};
       albums.forEach(a => {
         if (a.year && !isNaN(a.year)) {
@@ -975,7 +998,7 @@
               <div class="artist-name">${album.artist}</div>
               <div class="meta-info">${album.year} • ${album.genre}</div>
               <div class="card-footer">
-                <span class="rating" title="${album.rating}/10 rating">★ ${album.rating}/10</span>
+                <span class="rating">★ ${album.rating}/10</span>
                 <button class="btn-card-edit" onclick="openModal(${album.id})">Edit</button>
               </div>
             </div>
@@ -984,7 +1007,7 @@
       }).join('');
     }
 
-    // Initial Render
+    // Initial load
     renderAlbums();
   </script>
 </body>
