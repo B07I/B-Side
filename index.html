@@ -755,75 +755,87 @@
       event.target.value = '';
     }
 
-    /* Enhanced Dual Search API (iTunes + MusicBrainz Fallback) */
+    /* Smart Dual Search API (Cleaned iTunes + MusicBrainz Fuzzy Fallback) */
     async function fetchAlbumMetadata() {
-      const query = document.getElementById('itunes-query').value.trim();
+      const rawQuery = document.getElementById('itunes-query').value.trim();
       const resultsContainer = document.getElementById('search-results');
 
-      if (!query) return;
+      if (!rawQuery) return;
 
       resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--muted);">Searching catalog...</div>';
       resultsContainer.style.display = 'block';
 
+      // Strip noise words that mess up exact API indexes
+      const cleanQuery = rawQuery
+        .replace(/\b(by|album|record|lp|ep)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      let results = [];
+
+      // 1. Try iTunes API with cleaned query
       try {
-        // 1. Try iTunes with modern fetch and broad media matching
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=8`);
-        const data = await res.json();
-
-        let results = [];
-
-        if (data.results && data.results.length > 0) {
-          results = data.results.map(item => ({
-            title: item.collectionName,
-            artist: item.artistName,
-            year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : '',
-            genre: item.primaryGenreName || 'Music',
-            coverUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '',
-            thumb: item.artworkUrl100 || ''
-          }));
-        } else {
-          // 2. Fallback to MusicBrainz for underground, self-released, or local bands
-          const mbRes = await fetch(`https://musicbrainz.org/ws/2/release-group?query=${encodeURIComponent(query)}&type=album&fmt=json`, {
-            headers: { 'User-Agent': 'BSideVault/1.0' }
-          });
-          const mbData = await mbRes.json();
-          const groups = mbData['release-groups']?.slice(0, 6) || [];
-
-          results = groups.map(g => {
-            const mbid = g.id;
-            return {
-              title: g.title,
-              artist: g['artist-credit']?.[0]?.name || 'Unknown Artist',
-              year: g['first-release-date'] ? g['first-release-date'].split('-')[0] : '',
-              genre: g['primary-type'] || 'Music',
-              coverUrl: `https://coverartarchive.org/release-group/${mbid}/front-500`,
-              thumb: `https://coverartarchive.org/release-group/${mbid}/front-250`
-            };
-          });
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&media=music&entity=album&limit=8`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            results = data.results.map(item => ({
+              title: item.collectionName,
+              artist: item.artistName,
+              year: item.releaseDate ? new Date(item.releaseDate).getFullYear() : '',
+              genre: item.primaryGenreName || 'Music',
+              coverUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '600x600bb') : '',
+              thumb: item.artworkUrl100 || ''
+            }));
+          }
         }
-
-        if (results.length === 0) {
-          resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--muted);">No matching albums found.</div>';
-          return;
-        }
-
-        window.currentSearchResults = results;
-
-        const fallbackThumb = `https://via.placeholder.com/100/1c2541/8d99ae?text=No+Cover`;
-
-        resultsContainer.innerHTML = results.map((item, index) => `
-          <div class="search-item" onclick="selectAlbum(${index})">
-            <img src="${item.thumb || fallbackThumb}" alt="Cover" onerror="this.src='${fallbackThumb}'">
-            <div class="search-item-info">
-              <div class="search-item-title">${item.title}</div>
-              <div class="search-item-sub">${item.artist} ${item.year ? '• ' + item.year : ''} • ${item.genre}</div>
-            </div>
-          </div>
-        `).join('');
-
       } catch (err) {
-        resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--danger);">Search error. Check network connection.</div>';
+        console.warn('iTunes API search failed, moving to fallback...', err);
       }
+
+      // 2. Fallback to MusicBrainz (Handles typos like "Mesmerized" -> "Mezmerize")
+      if (results.length === 0) {
+        try {
+          const mbRes = await fetch(`https://musicbrainz.org/ws/2/release-group?query=${encodeURIComponent(cleanQuery)}&type=album&fmt=json`);
+          if (mbRes.ok) {
+            const mbData = await mbRes.json();
+            const groups = mbData['release-groups']?.slice(0, 6) || [];
+
+            results = groups.map(g => {
+              const mbid = g.id;
+              return {
+                title: g.title,
+                artist: g['artist-credit']?.[0]?.name || 'Unknown Artist',
+                year: g['first-release-date'] ? g['first-release-date'].split('-')[0] : '',
+                genre: g['primary-type'] || 'Music',
+                coverUrl: `https://coverartarchive.org/release-group/${mbid}/front-500`,
+                thumb: `https://coverartarchive.org/release-group/${mbid}/front-250`
+              };
+            });
+          }
+        } catch (err) {
+          console.error('MusicBrainz fallback failed:', err);
+        }
+      }
+
+      // 3. Render Results
+      if (results.length === 0) {
+        resultsContainer.innerHTML = '<div style="padding:0.6rem; font-size:0.8rem; color:var(--muted);">No matching albums found.</div>';
+        return;
+      }
+
+      window.currentSearchResults = results;
+      const fallbackThumb = `https://via.placeholder.com/100/1c2541/8d99ae?text=No+Cover`;
+
+      resultsContainer.innerHTML = results.map((item, index) => `
+        <div class="search-item" onclick="selectAlbum(${index})">
+          <img src="${item.thumb || fallbackThumb}" alt="Cover" onerror="this.src='${fallbackThumb}'">
+          <div class="search-item-info">
+            <div class="search-item-title">${item.title}</div>
+            <div class="search-item-sub">${item.artist} ${item.year ? '• ' + item.year : ''} • ${item.genre}</div>
+          </div>
+        </div>
+      `).join('');
     }
 
     function selectAlbum(index) {
